@@ -174,6 +174,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             params.alpha = MAXIMUM_OPACITY_ALLOWED_FOR_S_AND_HIGHER;
         }
         params.gravity = WindowSetup.gravity;
+        clampParamsToScreen(params);
         flutterView.setOnTouchListener(this);
         windowManager.addView(flutterView, params);
         moveOverlay(dx, dy, null);
@@ -220,6 +221,51 @@ public class OverlayService extends Service implements View.OnTouchListener {
         return mNavigationBarHeight;
     }
 
+    private int overlayWidthPx(WindowManager.LayoutParams params) {
+        if (params != null && params.width > 0) {
+            return params.width;
+        }
+        if (flutterView != null && flutterView.getWidth() > 0) {
+            return flutterView.getWidth();
+        }
+        return szWindow.x;
+    }
+
+    private int overlayHeightPx(WindowManager.LayoutParams params) {
+        if (params != null && params.height > 0) {
+            return params.height;
+        }
+        if (flutterView != null && flutterView.getHeight() > 0) {
+            return flutterView.getHeight();
+        }
+        return szWindow.y;
+    }
+
+    private int clampToRange(int value, int min, int max) {
+        return Math.max(min, Math.min(value, max));
+    }
+
+    private void clampParamsToScreen(WindowManager.LayoutParams params) {
+        if (params == null) {
+            return;
+        }
+
+        if (params.width > 0 && params.width > szWindow.x) {
+            params.width = szWindow.x;
+        }
+        if (params.height > 0 && params.height > szWindow.y) {
+            params.height = szWindow.y;
+        }
+
+        final int overlayWidth = overlayWidthPx(params);
+        final int overlayHeight = overlayHeightPx(params);
+        final int maxX = Math.max(0, szWindow.x - overlayWidth);
+        final int maxY = Math.max(0, szWindow.y - overlayHeight);
+
+        params.x = clampToRange(params.x, 0, maxX);
+        params.y = clampToRange(params.y, 0, maxY);
+    }
+
 
     private void updateOverlayFlag(MethodChannel.Result result, String flag) {
         if (windowManager != null) {
@@ -244,8 +290,9 @@ public class OverlayService extends Service implements View.OnTouchListener {
         if (windowManager != null) {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.width = (width == -1999 || width == -1) ? -1 : dpToPx(width);
-            params.height = (height != 1999 || height != -1) ? dpToPx(height) : height;
+            params.height = (height == -1999 || height == -1) ? -1 : dpToPx(height);
             WindowSetup.enableDrag = enableDrag;
+            clampParamsToScreen(params);
             windowManager.updateViewLayout(flutterView, params);
             result.success(true);
         } else {
@@ -258,6 +305,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.x = (x == -1999 || x == -1) ? -1 : dpToPx(x);
             params.y = dpToPx(y);
+            clampParamsToScreen(params);
             windowManager.updateViewLayout(flutterView, params);
             if (result != null)
                 result.success(true);
@@ -285,6 +333,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 WindowManager.LayoutParams params = (WindowManager.LayoutParams) instance.flutterView.getLayoutParams();
                 params.x = (x == -1999 || x == -1) ? -1 : instance.dpToPx(x);
                 params.y = instance.dpToPx(y);
+                instance.clampParamsToScreen(params);
                 instance.windowManager.updateViewLayout(instance.flutterView, params);
                 return true;
             } else {
@@ -339,6 +388,14 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 .setSmallIcon(notifyIcon == 0 ? R.drawable.notification_icon : notifyIcon)
                 .setContentIntent(pendingIntent)
                 .setVisibility(WindowSetup.notificationVisibility)
+                .setSilent(true)
+                .setOnlyAlertOnce(true)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setShowWhen(false)
+                .setSound(null)
+                .setVibrate(new long[]{0L})
                 .build();
         startForeground(OverlayConstants.NOTIFICATION_ID, notification);
         instance = this;
@@ -349,8 +406,13 @@ public class OverlayService extends Service implements View.OnTouchListener {
             NotificationChannel serviceChannel = new NotificationChannel(
                     OverlayConstants.CHANNEL_ID,
                     "Foreground Service Channel",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_MIN
             );
+            serviceChannel.setSound(null, null);
+            serviceChannel.enableVibration(false);
+            serviceChannel.setVibrationPattern(new long[]{0L});
+            serviceChannel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
+            serviceChannel.setShowBadge(false);
             NotificationManager manager = getSystemService(NotificationManager.class);
             assert manager != null;
             manager.createNotificationChannel(serviceChannel);
@@ -402,6 +464,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
                     int yy = params.y + ((int) dy * (invertY ? -1 : 1));
                     params.x = xx;
                     params.y = yy;
+                    clampParamsToScreen(params);
                     if (windowManager != null) {
                         windowManager.updateViewLayout(flutterView, params);
                     }
@@ -456,6 +519,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             mAnimationHandler.post(() -> {
                 params.x = (2 * (params.x - mDestX)) / 3 + mDestX;
                 params.y = (2 * (params.y - mDestY)) / 3 + mDestY;
+                OverlayService.this.clampParamsToScreen(params);
                 if (windowManager != null) {
                     windowManager.updateViewLayout(flutterView, params);
                 }

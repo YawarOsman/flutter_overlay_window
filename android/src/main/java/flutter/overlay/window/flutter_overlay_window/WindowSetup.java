@@ -15,10 +15,10 @@ public abstract class WindowSetup {
     static int flag = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
     static int gravity = Gravity.CENTER;
     static BasicMessageChannel<Object> messenger = null;
-    static String overlayTitle = "Overlay is activated";
-    static String overlayContent = "Tap to edit settings or disable";
+    static String overlayTitle = "";
+    static String overlayContent = "";
     static String positionGravity = "none";
-    static int notificationVisibility = NotificationCompat.VISIBILITY_PRIVATE;
+    static int notificationVisibility = NotificationCompat.VISIBILITY_SECRET;
     static boolean enableDrag = false;
 
 
